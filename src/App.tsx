@@ -165,6 +165,8 @@ function App() {
   const [recurringEditMode, setRecurringEditMode] = useState<boolean | null>(null); // true = single, false = all
   const [recurringDialogMode, setRecurringDialogMode] = useState<'edit' | 'delete'>('edit');
 
+  const [draggedEvent, setDraggedEvent] = useState<Event | null>(null);
+
   const { enqueueSnackbar } = useSnackbar();
 
   const handleRecurringConfirm = async (editSingleOnly: boolean) => {
@@ -299,6 +301,51 @@ function App() {
     newDate.setDate(date);
     setDate(formatDate(newDate));
   };
+
+  const handleDragStart = (event: Event) => {
+    setDraggedEvent(event);
+    // editingEvent 설정
+    editEvent(event);
+  };
+
+  const handleDrop = async (targetDay: number) => {
+    if (!draggedEvent || !targetDay || draggedEvent.date === formatDate(currentDate, targetDay))
+      return;
+
+    // 반복일정 여부 확인
+    if (draggedEvent.repeat.type !== 'none') {
+      enqueueSnackbar('반복일정은 날짜 변경시 반복일정이 취소 됩니다.', { variant: 'warning' });
+      setDraggedEvent(null);
+      return;
+    }
+
+    // 날짜 변경
+    const newDate = formatDate(currentDate, targetDay);
+    const updatedEvent = { ...draggedEvent, date: newDate };
+
+    // 겹침 체크
+    const overlapping = findOverlappingEvents(updatedEvent, events);
+    const hasOverlapEvent = overlapping.length > 0;
+    if (hasOverlapEvent) {
+      setOverlappingEvents(overlapping);
+      editEvent(updatedEvent);
+      setIsOverlapDialogOpen(true);
+      setDraggedEvent(null);
+      return;
+    }
+
+    try {
+      await saveEvent(updatedEvent);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('일정 저장 실패', { variant: 'error' });
+    } finally {
+      setDraggedEvent(null);
+      setEditingEvent(null);
+      resetForm();
+    }
+  };
+
   const renderWeekView = () => {
     const weekDates = getWeekDates(currentDate);
     return (
@@ -421,6 +468,8 @@ function App() {
                           position: 'relative',
                         }}
                         onClick={() => cellClickHandler(day)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => handleDrop(day ?? 0)}
                       >
                         {day && (
                           <>
@@ -450,6 +499,8 @@ function App() {
                                     width: '100%',
                                     overflow: 'hidden',
                                   }}
+                                  draggable={true}
+                                  onDragStart={() => handleDragStart(event)}
                                 >
                                   <Stack direction="row" spacing={1} alignItems="center">
                                     {isNotified && <Notifications fontSize="small" />}
@@ -813,13 +864,22 @@ function App() {
           <DialogContentText>계속 진행하시겠습니까?</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsOverlapDialogOpen(false)}>취소</Button>
+          <Button
+            onClick={() => {
+              setIsOverlapDialogOpen(false);
+              setEditingEvent(null);
+              setOverlappingEvents([]);
+              setDraggedEvent(null);
+            }}
+          >
+            취소
+          </Button>
           <Button
             color="error"
             onClick={() => {
               setIsOverlapDialogOpen(false);
               saveEvent({
-                id: editingEvent ? editingEvent.id : undefined,
+                id: editingEvent ? editingEvent.id : '',
                 title,
                 date,
                 startTime,
@@ -834,6 +894,7 @@ function App() {
                 },
                 notificationTime,
               });
+              setDraggedEvent(null);
             }}
           >
             계속 진행
