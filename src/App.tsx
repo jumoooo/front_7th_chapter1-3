@@ -290,6 +290,15 @@ function App() {
     resetForm();
   };
 
+  const cellClickHandler = (date: number | null) => {
+    // 날짜 선택 안됨
+    if (!date) return;
+
+    // 날짜 변경
+    const newDate = new Date(currentDate);
+    newDate.setDate(date);
+    setDate(formatDate(newDate));
+  };
   const renderWeekView = () => {
     const weekDates = getWeekDates(currentDate);
     return (
@@ -319,6 +328,7 @@ function App() {
                       border: '1px solid #e0e0e0',
                       overflow: 'hidden',
                     }}
+                    onClick={() => cellClickHandler(date.getDate())}
                   >
                     <Typography variant="body2" fontWeight="bold">
                       {date.getDate()}
@@ -344,7 +354,9 @@ function App() {
                               {/* ! TEST CASE */}
                               {isRepeating && (
                                 <Tooltip
-                                  title={`${event.repeat.interval}${getRepeatTypeLabel(event.repeat.type)}마다 반복${
+                                  title={`${event.repeat.interval}${getRepeatTypeLabel(
+                                    event.repeat.type
+                                  )}마다 반복${
                                     event.repeat.endDate ? ` (종료: ${event.repeat.endDate})` : ''
                                   }`}
                                 >
@@ -408,6 +420,7 @@ function App() {
                           overflow: 'hidden',
                           position: 'relative',
                         }}
+                        onClick={() => cellClickHandler(day)}
                       >
                         {day && (
                           <>
@@ -443,7 +456,9 @@ function App() {
                                     {/* ! TEST CASE */}
                                     {isRepeating && (
                                       <Tooltip
-                                        title={`${event.repeat.interval}${getRepeatTypeLabel(event.repeat.type)}마다 반복${
+                                        title={`${event.repeat.interval}${getRepeatTypeLabel(
+                                          event.repeat.type
+                                        )}마다 반복${
                                           event.repeat.endDate
                                             ? ` (종료: ${event.repeat.endDate})`
                                             : ''
@@ -728,7 +743,9 @@ function App() {
                       {notifiedEvents.includes(event.id) && <Notifications color="error" />}
                       {event.repeat.type !== 'none' && (
                         <Tooltip
-                          title={`${event.repeat.interval}${getRepeatTypeLabel(event.repeat.type)}마다 반복${
+                          title={`${event.repeat.interval}${getRepeatTypeLabel(
+                            event.repeat.type
+                          )}마다 반복${
                             event.repeat.endDate ? ` (종료: ${event.repeat.endDate})` : ''
                           }`}
                         >
