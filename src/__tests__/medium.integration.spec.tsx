@@ -560,6 +560,7 @@ describe('달력 부분 마우스 조작 기능 테스트', () => {
       expect(screen.getByLabelText('날짜')).toHaveValue('2025-11-04');
     });
   });
+
   describe('달력 드래그 앤 드롭 기능', () => {
     afterEach(() => {
       server.resetHandlers();
