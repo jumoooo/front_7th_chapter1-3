@@ -376,6 +376,8 @@ function App() {
                       overflow: 'hidden',
                     }}
                     onClick={() => cellClickHandler(date.getDate())}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop(date.getDate() ?? 0)}
                   >
                     <Typography variant="body2" fontWeight="bold">
                       {date.getDate()}
@@ -395,6 +397,8 @@ function App() {
                               ...eventBoxStyles.common,
                               ...(isNotified ? eventBoxStyles.notified : eventBoxStyles.normal),
                             }}
+                            draggable={true}
+                            onDragStart={() => handleDragStart(event)}
                           >
                             <Stack direction="row" spacing={1} alignItems="center">
                               {isNotified && <Notifications fontSize="small" />}
