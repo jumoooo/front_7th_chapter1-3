@@ -38,6 +38,7 @@ import {
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 
+import ConfirmDialog from './components/ConfirmDialog.tsx';
 import RecurringEventDialog from './components/RecurringEventDialog.tsx';
 import { useCalendarView } from './hooks/useCalendarView.ts';
 import { useEventForm } from './hooks/useEventForm.ts';
@@ -158,6 +159,7 @@ function App() {
   const { searchTerm, filteredEvents, setSearchTerm } = useSearch(events, currentDate, view);
 
   const [isOverlapDialogOpen, setIsOverlapDialogOpen] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [overlappingEvents, setOverlappingEvents] = useState<Event[]>([]);
   const [isRecurringDialogOpen, setIsRecurringDialogOpen] = useState(false);
   const [pendingRecurringEdit, setPendingRecurringEdit] = useState<Event | null>(null);
@@ -166,8 +168,23 @@ function App() {
   const [recurringDialogMode, setRecurringDialogMode] = useState<'edit' | 'delete'>('edit');
 
   const [draggedEvent, setDraggedEvent] = useState<Event | null>(null);
-
+  const [confirmDialogTitle, setConfirmDialogTitle] = useState('');
+  const [confirmDialogMessage, setConfirmDialogMessage] = useState('');
+  const [confirmDialogResolver, setConfirmDialogResolver] = useState<
+    ((value: boolean) => void) | null
+  >(null);
   const { enqueueSnackbar } = useSnackbar();
+
+  const handleConfirm = async (ditSingleOnly: boolean) => {
+    setIsConfirmDialogOpen(false);
+    setConfirmDialogTitle('');
+    setConfirmDialogMessage('');
+    // Promise resolver를 호출하여 다이얼로그 결과 전달
+    if (confirmDialogResolver) {
+      confirmDialogResolver(ditSingleOnly);
+      setConfirmDialogResolver(null);
+    }
+  };
 
   const handleRecurringConfirm = async (editSingleOnly: boolean) => {
     if (recurringDialogMode === 'edit' && pendingRecurringEdit) {
@@ -309,19 +326,35 @@ function App() {
   };
 
   const handleDrop = async (targetDay: number) => {
-    if (!draggedEvent || !targetDay || draggedEvent.date === formatDate(currentDate, targetDay))
-      return;
+    if (!draggedEvent || !targetDay) return;
 
-    // 반복일정 여부 확인
+    // 날짜 변경 확인 (날짜가 실제로 변경되지 않았으면 종료)
+    const newDate = formatDate(currentDate, targetDay);
+    if (draggedEvent.date === newDate) return;
+
+    // 반복일정 여부 확인 (날짜가 실제로 변경되었을 때만)
     if (draggedEvent.repeat.type !== 'none') {
-      enqueueSnackbar('반복일정은 날짜 변경시 반복일정이 취소 됩니다.', { variant: 'warning' });
-      setDraggedEvent(null);
-      return;
+      // Promise를 사용하여 사용자가 확인 버튼을 누를 때까지 기다림
+      const userConfirmed = await new Promise<boolean>((resolve) => {
+        setConfirmDialogResolver(() => resolve);
+        setConfirmDialogTitle('반복일정 수정');
+        setConfirmDialogMessage('반복일정은 날짜 변경시 반복일정이 취소 됩니다.');
+        setIsConfirmDialogOpen(true);
+      });
+
+      // 사용자가 취소했거나 false를 반환한 경우 종료
+      if (!userConfirmed) {
+        setDraggedEvent(null);
+        return;
+      }
     }
 
-    // 날짜 변경
-    const newDate = formatDate(currentDate, targetDay);
-    const updatedEvent = { ...draggedEvent, date: newDate };
+    // 날짜 변경, 반복 초기화
+    const updatedEvent: Event = {
+      ...draggedEvent,
+      date: newDate,
+      repeat: { type: 'none', interval: 0, endDate: '' },
+    };
 
     // 겹침 체크
     const overlapping = findOverlappingEvents(updatedEvent, events);
@@ -916,6 +949,24 @@ function App() {
         onConfirm={handleRecurringConfirm}
         event={recurringDialogMode === 'edit' ? pendingRecurringEdit : pendingRecurringDelete}
         mode={recurringDialogMode}
+      />
+
+      <ConfirmDialog
+        open={isConfirmDialogOpen}
+        onClose={() => {
+          setIsConfirmDialogOpen(false);
+          setConfirmDialogTitle('');
+          setConfirmDialogMessage('');
+
+          // 사용자가 다이얼로그를 닫았을 때 false를 반환
+          if (confirmDialogResolver) {
+            confirmDialogResolver(false);
+            setConfirmDialogResolver(null);
+          }
+        }}
+        onConfirm={handleConfirm}
+        title={confirmDialogTitle}
+        message={confirmDialogMessage}
       />
 
       {notifications.length > 0 && (
