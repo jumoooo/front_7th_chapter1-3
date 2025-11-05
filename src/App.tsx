@@ -337,8 +337,8 @@ function App() {
       // Promise를 사용하여 사용자가 확인 버튼을 누를 때까지 기다림
       const userConfirmed = await new Promise<boolean>((resolve) => {
         setConfirmDialogResolver(() => resolve);
-        setConfirmDialogTitle('반복일정 수정');
-        setConfirmDialogMessage('반복일정은 날짜 변경시 반복일정이 취소 됩니다.');
+        setConfirmDialogTitle('반복 일정 수정');
+        setConfirmDialogMessage('반복 일정은 날짜 변경시 반복 일정이 취소 됩니다.');
         setIsConfirmDialogOpen(true);
       });
 
