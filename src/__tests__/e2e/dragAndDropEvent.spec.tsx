@@ -9,7 +9,7 @@ import { setupMockHandlerCreation, setupMockHandlerUpdating } from '../../__mock
 import App from '../../App';
 import { server } from '../../setupTests';
 import type { Event } from '../../types';
-import { setup, saveSchedule } from '../testUtils'; // 추가
+import { setup, saveSchedule } from '../testUtils';
 
 describe('드래그 앤 드롭 일정 이동 E2E 테스트', () => {
   afterEach(() => {
@@ -18,7 +18,7 @@ describe('드래그 앤 드롭 일정 이동 E2E 테스트', () => {
 
   it('달력의 일정을 드래그 후 일정이 없는 곳 위로 이동하면 해당 일정이 해당 날짜로 변경 되어야 한다.', async () => {
     vi.setSystemTime(new Date('2025-11-04'));
-    setupMockHandlerCreation(); // 일정 생성용 mock 설정
+    setupMockHandlerCreation();
     const { user } = setup(<App />);
 
     // 일정 로딩 완료 대기

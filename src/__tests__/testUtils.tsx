@@ -23,7 +23,7 @@ export const setup = (element: ReactElement): RenderResult & { user: UserEvent }
   };
 };
 
-// 일정 생성 헬퍼 함수
+// 사용자 입력 일정 생성 헬퍼 함수
 export const saveSchedule = async (
   user: UserEvent,
   form: Omit<Event, 'id' | 'notificationTime' | 'repeat'> & { repeat?: RepeatInfo }
