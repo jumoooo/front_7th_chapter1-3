@@ -1,12 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-import {
-  clearAllEvents,
-  getCurrentDateString,
-  getEventTitleLocator,
-  saveSchedule,
-  waitForPageLoad,
-} from './helpers';
+import { clearAllEvents, getCurrentDateString, saveSchedule, waitForPageLoad } from './helpers';
 
 /**
  * @name 알림 시스템 노출 조건 E2E 테스트
@@ -41,7 +35,7 @@ test.describe('알림 시스템 노출 조건 E2E 테스트', () => {
     // 실제 E2E 환경에서는 시간 기반 알림을 테스트하기 어려우므로,
     // 일정이 생성되고 알림 아이콘이 표시되는지 확인 (제목만 찾기)
     const eventList = page.getByTestId('event-list');
-    const importantMeeting = getEventTitleLocator(eventList, '중요 회의');
+    const importantMeeting = eventList.getByText('중요 회의');
     await expect(importantMeeting).toBeVisible();
 
     // 알림 아이콘이 표시되는지 확인 (알림 시간이 지났을 경우)
@@ -69,7 +63,7 @@ test.describe('알림 시스템 노출 조건 E2E 테스트', () => {
 
     // 일정이 생성되었는지 확인 (제목만 찾기)
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '중요 회의')).toBeVisible();
+    await expect(eventList.getByText('중요 회의')).toBeVisible();
 
     // 달력 뷰에서 일정이 표시되는지 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     const monthView = page.getByTestId('month-view');
@@ -123,7 +117,7 @@ test.describe('알림 시스템 노출 조건 E2E 테스트', () => {
       date: testDate,
       startTime: '09:00',
       endTime: '10:00',
-      description: '첫 번째 회의',
+      description: '첫 번째 설명',
       location: '회의실 A',
       category: '업무',
     });
@@ -138,7 +132,7 @@ test.describe('알림 시스템 노출 조건 E2E 테스트', () => {
       date: testDate,
       startTime: '09:00',
       endTime: '10:00',
-      description: '두 번째 회의',
+      description: '두 번째 설명',
       location: '회의실 B',
       category: '업무',
     });
@@ -146,7 +140,7 @@ test.describe('알림 시스템 노출 조건 E2E 테스트', () => {
     // 겹침 경고 다이얼로그가 나타나면 확인 버튼 클릭
     const overlapDialog = page.getByText('일정 겹침 경고');
     if (await overlapDialog.isVisible()) {
-      await page.getByText('계속 진행').click();
+      await page.getByRole('button', { name: '계속 진행' }).click();
     }
 
     // 일정 저장 후 성공 메시지 대기
@@ -154,8 +148,8 @@ test.describe('알림 시스템 노출 조건 E2E 테스트', () => {
 
     // 두 일정 모두 생성되었는지 확인 (제목만 찾기)
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '첫 번째 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '두 번째 회의')).toBeVisible();
+    await expect(eventList.getByText('첫 번째 회의')).toBeVisible();
+    await expect(eventList.getByText('두 번째 회의')).toBeVisible();
 
     // 실제 E2E 환경에서는 시간이 경과해야 알림이 표시되므로,
     // 일정이 생성되었는지만 확인
@@ -181,7 +175,7 @@ test.describe('알림 시스템 노출 조건 E2E 테스트', () => {
 
     // 일정이 생성되었는지 확인 (제목만 찾기)
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '지난 회의')).toBeVisible();
+    await expect(eventList.getByText('지난 회의')).toBeVisible();
 
     // 실제 E2E 환경에서는 시간 기반 알림이므로,
     // 과거 시간의 일정은 알림이 표시되지 않아야 함

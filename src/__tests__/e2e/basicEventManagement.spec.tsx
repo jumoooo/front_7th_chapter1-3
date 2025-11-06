@@ -151,7 +151,7 @@ test.describe('기본 일정 관리 워크플로우 E2E 테스트', () => {
       date: testDate,
       startTime: '09:00',
       endTime: '10:00',
-      description: '삭제할 이벤트입니다',
+      description: '삭제 주석 입니다',
       location: '어딘가',
       category: '기타',
     });

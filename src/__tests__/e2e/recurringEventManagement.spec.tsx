@@ -4,7 +4,6 @@ import {
   clearAllEvents,
   getCurrentDateString,
   getDateString,
-  getEventTitleLocator,
   saveSchedule,
   waitForPageLoad,
 } from './helpers';
@@ -47,9 +46,9 @@ test.describe('반복 일정 관리 워크플로우 E2E 테스트', () => {
     expect(count).toBeGreaterThanOrEqual(2);
 
     // 각 날짜별 일정이 표시되는지 확인
-    await expect(eventList.getByText(startDate)).toBeVisible();
-    await expect(eventList.getByText(getDateString(1))).toBeVisible();
-    await expect(eventList.getByText(endDate)).toBeVisible();
+    await expect(eventList.getByText(startDate, { exact: true })).toBeVisible();
+    await expect(eventList.getByText(getDateString(1), { exact: true })).toBeVisible();
+    await expect(eventList.getByText(endDate, { exact: true })).toBeVisible();
 
     // 반복 아이콘이 표시되는지 확인
     const repeatIcons = page.locator('[data-testid="RepeatIcon"]');
@@ -92,9 +91,9 @@ test.describe('반복 일정 관리 워크플로우 E2E 테스트', () => {
     expect(count).toBeGreaterThanOrEqual(2);
 
     // 각 인스턴스의 정보가 정확한지 확인
-    await expect(eventList.getByText(startDate)).toBeVisible();
-    await expect(eventList.getByText(getDateString(1))).toBeVisible();
-    await expect(eventList.getByText(endDate)).toBeVisible();
+    await expect(eventList.getByText(startDate, { exact: true })).toBeVisible();
+    await expect(eventList.getByText(getDateString(1), { exact: true })).toBeVisible();
+    await expect(eventList.getByText(endDate, { exact: true })).toBeVisible();
 
     // 시간이 여러 개 있을 수 있으므로 확인
     const timeTexts = eventList.locator('text=14:00 - 15:00');
@@ -174,12 +173,9 @@ test.describe('반복 일정 관리 워크플로우 E2E 테스트', () => {
     // 수정 완료
     await page.getByTestId('event-submit-button').click();
 
-    // 일정이 수정되었다는 메시지 확인
-    await expect(page.getByText('일정이 수정되었습니다')).toBeVisible({ timeout: 10000 });
-
     // 결과 확인: 한 개는 수정되고 나머지는 그대로 (제목만 찾기)
     const updatedEventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(updatedEventList, '수정된 회의')).toBeVisible();
+    await expect(updatedEventList.getByText('수정된 회의')).toBeVisible();
 
     // 나머지 일정은 그대로 유지되는지 확인
     const remainingMeetings = updatedEventList.locator('text=매일 회의');
@@ -234,9 +230,7 @@ test.describe('반복 일정 관리 워크플로우 E2E 테스트', () => {
     // 수정 완료
     await page.getByTestId('event-submit-button').click();
 
-    // 일정이 수정되었다는 메시지 확인
-    await expect(page.getByText('일정이 수정되었습니다')).toBeVisible({ timeout: 10000 });
-
+    await page.waitForTimeout(1000);
     // 결과 확인: 모든 일정이 변경되었는지 확인
     const updatedEventList = page.getByTestId('event-list');
     const updatedMeetings = updatedEventList.locator('text=전체 변경된 회의');

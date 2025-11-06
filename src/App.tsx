@@ -369,6 +369,7 @@ function App() {
 
     try {
       await saveEvent(updatedEvent);
+      enqueueSnackbar('일정이 수정되었습니다', { variant: 'success' });
     } catch (error) {
       console.error(error);
       enqueueSnackbar('일정 저장 실패', { variant: 'error' });

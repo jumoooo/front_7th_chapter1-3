@@ -4,7 +4,6 @@ import {
   clearAllEvents,
   getCurrentDateString,
   getDateString,
-  getEventTitleLocator,
   saveSchedule,
   waitForPageLoad,
 } from './helpers';
@@ -54,16 +53,16 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
 
     // 검색어 입력 전 모든 일정 확인 (제목만 찾기)
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '프로젝트 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '점심 약속')).toBeVisible();
+    await expect(eventList.getByText('프로젝트 회의')).toBeVisible();
+    await expect(eventList.getByText('점심 약속')).toBeVisible();
 
     // 검색어 입력 (제목으로 검색)
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('프로젝트');
 
     // 검색 결과 확인: '프로젝트 회의'만 표시되어야 함 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '프로젝트 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '점심 약속')).not.toBeVisible();
+    await expect(eventList.getByText('프로젝트 회의')).toBeVisible();
+    await expect(eventList.getByText('점심 약속')).not.toBeVisible();
 
     // 달력에서도 검색 결과 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     const monthView = page.getByTestId('month-view');
@@ -104,16 +103,16 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
     await page.waitForSelector('text=일정이 추가되었습니다', { timeout: 10000 });
 
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '팀 미팅')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '개인 일정')).toBeVisible();
+    await expect(eventList.getByText('팀 미팅')).toBeVisible();
+    await expect(eventList.getByText('개인 일정')).toBeVisible();
 
     // 검색어 입력 (설명으로 검색)
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('점심');
 
     // 검색 결과 확인: '개인 일정'만 표시되어야 함 (설명에 '점심'이 포함됨) (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '개인 일정')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '팀 미팅')).not.toBeVisible();
+    await expect(eventList.getByText('개인 일정')).toBeVisible();
+    await expect(eventList.getByText('팀 미팅')).not.toBeVisible();
 
     // 달력에서도 검색 결과 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     const monthView = page.getByTestId('month-view');
@@ -154,16 +153,16 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
     await page.waitForSelector('text=일정이 추가되었습니다', { timeout: 10000 });
 
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '약속')).toBeVisible();
+    await expect(eventList.getByText('회의', { exact: true })).toBeVisible();
+    await expect(eventList.getByText('약속', { exact: true })).toBeVisible();
 
     // 검색어 입력 (위치로 검색)
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('회의실');
 
-    // 검색 결과 확인: '회의'만 표시되어야 함 (위치에 '회의실'이 포함됨) (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '약속')).not.toBeVisible();
+    // 검색 결과 확인: '회의'만 표시되어야 함
+    await expect(eventList.getByText('회의', { exact: true })).toBeVisible();
+    await expect(eventList.getByText('약속', { exact: true })).not.toBeVisible();
 
     // 달력에서도 검색 결과 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     const monthView = page.getByTestId('month-view');
@@ -190,14 +189,14 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
     await page.waitForSelector('text=일정이 추가되었습니다', { timeout: 10000 });
 
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '회의')).toBeVisible();
+    await expect(eventList.getByText('회의', { exact: true })).toBeVisible();
 
     // 존재하지 않는 검색어 입력
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('존재하지않는일정');
 
     // 검색 결과가 없는 경우: 일정이 리스트에서 사라져야 함 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '회의')).not.toBeVisible();
+    await expect(eventList.getByText('회의', { exact: true })).not.toBeVisible();
 
     // 검색 결과 없음 메시지 확인
     await expect(page.getByText('검색 결과가 없습니다')).toBeVisible();
@@ -240,23 +239,23 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
     await page.waitForSelector('text=일정이 추가되었습니다', { timeout: 10000 });
 
     const eventList = page.getByTestId('event-list');
-    await expect(getEventTitleLocator(eventList, '프로젝트 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '점심 약속')).toBeVisible();
+    await expect(eventList.getByText('프로젝트 회의')).toBeVisible();
+    await expect(eventList.getByText('점심 약속')).toBeVisible();
 
     // 검색어 입력
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('프로젝트');
 
     // 검색 결과 확인: '프로젝트 회의'만 표시 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '프로젝트 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '점심 약속')).not.toBeVisible();
+    await expect(eventList.getByText('프로젝트 회의')).toBeVisible();
+    await expect(eventList.getByText('점심 약속')).not.toBeVisible();
 
     // 검색어 삭제
     await searchInput.clear();
 
     // 모든 일정이 다시 표시되는지 확인 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '프로젝트 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '점심 약속')).toBeVisible();
+    await expect(eventList.getByText('프로젝트 회의')).toBeVisible();
+    await expect(eventList.getByText('점심 약속')).toBeVisible();
 
     // 달력에서도 모든 일정이 다시 표시되는지 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     const monthView = page.getByTestId('month-view');
@@ -306,15 +305,15 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
 
     // 주간 뷰에서는 현재 주의 일정만 표시되어야 함 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     await expect(weekView.locator('text=/^주간 회의/')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '주간 회의')).toBeVisible();
+    await expect(eventList.getByText('주간 회의')).toBeVisible();
 
     // 검색어 입력
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('주간');
 
     // 검색 결과 확인: 주간 뷰에 해당하는 일정만 검색 결과에 표시 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '주간 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '다른 주 회의')).not.toBeVisible();
+    await expect(eventList.getByText('주간 회의')).toBeVisible();
+    await expect(eventList.getByText('다른 주 회의')).not.toBeVisible();
 
     // 주간 뷰 달력에서도 검색 결과 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     await expect(weekView.locator('text=/^주간 회의/')).toBeVisible();
@@ -359,15 +358,15 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
 
     // 월간 뷰에서는 현재 월의 일정만 표시되어야 함 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     await expect(monthView.locator('text=/^10월 회의/')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '10월 회의')).toBeVisible();
+    await expect(eventList.getByText('10월 회의')).toBeVisible();
 
     // 검색어 입력
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('10월');
 
     // 검색 결과 확인: 월간 뷰에 해당하는 일정만 검색 결과에 표시 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '10월 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '11월 회의')).not.toBeVisible();
+    await expect(eventList.getByText('10월 회의')).toBeVisible();
+    await expect(eventList.getByText('11월 회의')).not.toBeVisible();
 
     // 월간 뷰 달력에서도 검색 결과 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     await expect(monthView.locator('text=/^10월 회의/')).toBeVisible();
@@ -421,18 +420,18 @@ test.describe('검색 및 필터링 전반 E2E 테스트', () => {
     const eventList = page.getByTestId('event-list');
 
     // 모든 일정이 표시되는지 확인 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '프로젝트 회의')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '점심 약속')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '팀 미팅')).toBeVisible();
+    await expect(eventList.getByText('프로젝트 회의', { exact: true })).toBeVisible();
+    await expect(eventList.getByText('점심 약속', { exact: true })).toBeVisible();
+    await expect(eventList.getByText('팀 미팅', { exact: true })).toBeVisible();
 
     // 검색어 입력 (일부 일정만 일치)
     const searchInput = page.getByPlaceholder('검색어를 입력하세요');
     await searchInput.fill('점심');
 
     // 검색 결과 확인: '점심 약속'만 표시되어야 함 (제목만 찾기)
-    await expect(getEventTitleLocator(eventList, '점심 약속')).toBeVisible();
-    await expect(getEventTitleLocator(eventList, '프로젝트 회의')).not.toBeVisible();
-    await expect(getEventTitleLocator(eventList, '팀 미팅')).not.toBeVisible();
+    await expect(eventList.getByText('점심 약속', { exact: true })).toBeVisible();
+    await expect(eventList.getByText('프로젝트 회의', { exact: true })).not.toBeVisible();
+    await expect(eventList.getByText('팀 미팅', { exact: true })).not.toBeVisible();
 
     // 달력에서도 검색 결과 확인 (제목이 잘릴 수 있으므로 부분 매칭 사용)
     const monthView = page.getByTestId('month-view');

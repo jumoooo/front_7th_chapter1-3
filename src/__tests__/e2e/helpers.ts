@@ -1,4 +1,7 @@
-import { Locator, Page } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+
+import { Page } from '@playwright/test';
 
 import type { Event, RepeatInfo } from '../../types';
 
@@ -68,16 +71,16 @@ export const saveSchedule = async (
   // 제출 버튼 클릭
   await page.getByTestId('event-submit-button').click();
 
-  // 겹침 경고 다이얼로그가 나타나는지 확인
-  const overlapDialog = page.getByText('일정 겹침 경고');
-  const isOverlapDialogVisible = await overlapDialog
-    .isVisible({ timeout: 2000 })
-    .catch(() => false);
+  // // 겹침 경고 다이얼로그가 나타나는지 확인
+  // const overlapDialog = page.getByText('일정 겹침 경고');
+  // const isOverlapDialogVisible = await overlapDialog
+  //   .isVisible({ timeout: 2000 })
+  //   .catch(() => false);
 
-  if (isOverlapDialogVisible) {
-    // 겹침 경고가 있으면 "계속 진행" 버튼 클릭
-    await page.getByText('계속 진행').click();
-  }
+  // if (isOverlapDialogVisible) {
+  //   // 겹침 경고가 있으면 "계속 진행" 버튼 클릭
+  //   await page.getByRole('button', { name: '계속 진행' }).click();
+  // }
 };
 
 /**
@@ -136,8 +139,25 @@ export const clearAllEvents = async (page: Page) => {
       await Promise.all(deletePromises);
     }
     // 페이지 새로고침은 waitForPageLoad에서 처리하므로 여기서는 하지 않음
+    await resetE2eJsonFile();
   } catch {
     // API 호출 실패 시 무시 (서버가 아직 시작되지 않았을 수 있음)
     // 첫 테스트 실행 시 서버가 아직 준비되지 않았을 수 있음
+    await resetE2eJsonFile();
+  }
+};
+
+/**
+ * e2e.json 파일을 빈 배열로 초기화
+ * @param page - Playwright Page 객체 (사용하지 않지만 일관성을 위해 유지)
+ */
+export const resetE2eJsonFile = async () => {
+  try {
+    const filePath = path.join(process.cwd(), 'src/__mocks__/response/e2e.json');
+    const emptyData = { events: [] };
+    fs.writeFileSync(filePath, JSON.stringify(emptyData, null, 2), 'utf8');
+  } catch (error) {
+    // 파일 쓰기 실패 시 무시 (파일이 없을 수 있음)
+    console.warn('e2e.json 파일 초기화 실패:', error);
   }
 };
