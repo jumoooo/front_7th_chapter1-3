@@ -8,3 +8,7 @@ node_modules
 /.local-browsers/
 /allure-results/
 /.allure/
+*storybook.log
+storybook-static
+.env
+.env.local

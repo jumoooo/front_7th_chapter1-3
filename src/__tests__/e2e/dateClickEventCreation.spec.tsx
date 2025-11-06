@@ -1,99 +1,114 @@
+import { test, expect } from '@playwright/test';
+
+import { clearAllEvents, getCurrentDateString, waitForPageLoad } from './helpers';
+
 /**
  * @name 날짜 클릭 일정 생성 E2E 테스트
  * @description 캘린더의 빈 날짜 셀 클릭 시 일정 생성 폼에 날짜가 자동으로 채워지는 기능을 검증하는 E2E 테스트
  */
-
-import { screen, within } from '@testing-library/react';
-import { vi } from 'vitest';
-
-import { setupMockHandlerCreation } from '../../__mocks__/handlersUtils';
-import App from '../../App';
-import { server } from '../../setupTests';
-import { setup } from '../testUtils';
-
-describe('날짜 클릭 일정 생성 E2E 테스트', () => {
-  afterEach(() => {
-    server.resetHandlers();
+test.describe('날짜 클릭 일정 생성 E2E 테스트', () => {
+  test.beforeEach(async ({ page }) => {
+    // 테스트 데이터 초기화 (모든 이벤트 삭제)
+    await clearAllEvents(page);
+    await waitForPageLoad(page);
   });
 
-  // 날짜 클릭후 일정 생성 폼에 날짜가 자동으로 채워지는지 확인한다
-  it('날짜 클릭후 일정 생성 폼에 날짜가 자동으로 채워지는지 확인한다', async () => {
-    vi.setSystemTime(new Date('2025-11-04'));
-    const { user } = setup(<App />);
+  test('날짜 클릭후 일정 생성 폼에 날짜가 자동으로 채워지는지 확인한다', async ({ page }) => {
+    // 현재 날짜를 기준으로 테스트
+    const currentDate = new Date();
+    const currentDay = currentDate.getDate();
 
-    // 일정 로딩 완료 대기
-    await screen.findByText('일정 로딩 완료!');
+    // 달력의 빈 현재 날짜 셀 찾기
+    const monthView = page.getByTestId('month-view');
+    const tableBody = monthView.locator('tbody');
+    const cells = tableBody.locator('td');
 
-    // 달력의 빈 2025-11-04 셀 클릭
-    const monthView = screen.getByTestId('month-view');
-    const tableBody = within(monthView).getAllByRole('rowgroup')[1];
-    const allBodyCells = within(tableBody).getAllByRole('cell');
-    const emptyCell = allBodyCells.find((cell) => {
-      const dayText = within(cell).queryByText('4');
-      // 일정이 없는 빈 셀인지 확인
-      const hasEventBox = within(cell).queryByRole('button', { name: /.*/ });
-      return dayText !== null && !hasEventBox;
-    });
+    // 현재 날짜 셀 찾기 (일정이 없는 빈 셀)
+    let targetCell;
+    for (let i = 0; i < (await cells.count()); i++) {
+      const cell = cells.nth(i);
+      const dayText = await cell.locator(`text=${currentDay}`).first();
+      const hasEventBox = await cell.locator('button').count();
 
-    expect(emptyCell).toBeDefined();
-    await user.click(emptyCell!);
+      // 날짜가 현재 날짜이고 일정이 없는 셀
+      if ((await dayText.count()) > 0 && hasEventBox === 0) {
+        targetCell = cell;
+        break;
+      }
+    }
 
-    // 날짜가 자동으로 채워졌는지 확인
-    expect(screen.getByLabelText('날짜')).toHaveValue('2025-11-04');
+    expect(targetCell).toBeDefined();
+
+    // 셀 클릭
+    await targetCell!.click();
+
+    // 날짜가 자동으로 채워졌는지 확인 (현재 날짜)
+    const expectedDate = getCurrentDateString();
+    await expect(page.getByLabel('날짜')).toHaveValue(expectedDate);
   });
 
-  it('날짜 클릭후 입력된 날짜를 가진 폼으로 일정을 정상적으로 생성되는지 확인한다', async () => {
-    vi.setSystemTime(new Date('2025-11-04'));
-    setupMockHandlerCreation();
-    const { user } = setup(<App />);
+  test('날짜 클릭후 입력된 날짜를 가진 폼으로 일정을 정상적으로 생성되는지 확인한다', async ({
+    page,
+  }) => {
+    // 현재 날짜를 기준으로 테스트
+    const currentDate = new Date();
+    const currentDay = currentDate.getDate();
+    const expectedDate = getCurrentDateString();
 
-    // 일정 로딩 완료 대기
-    await screen.findByText('일정 로딩 완료!');
+    // 달력의 빈 현재 날짜 셀 찾기
+    const monthView = page.getByTestId('month-view');
+    const tableBody = monthView.locator('tbody');
+    const cells = tableBody.locator('td');
 
-    // 달력의 빈 2025-11-04 셀 클릭
-    const monthView = screen.getByTestId('month-view');
-    const tableBody = within(monthView).getAllByRole('rowgroup')[1];
-    const allBodyCells = within(tableBody).getAllByRole('cell');
-    const emptyCell = allBodyCells.find((cell) => {
-      const dayText = within(cell).queryByText('4');
-      // 일정이 없는 빈 셀인지 확인
-      const hasEventBox = within(cell).queryByRole('button', { name: /.*/ });
-      return dayText !== null && !hasEventBox;
-    });
+    // 현재 날짜 셀 찾기
+    let targetCell;
+    for (let i = 0; i < (await cells.count()); i++) {
+      const cell = cells.nth(i);
+      const dayText = await cell.locator(`text=${currentDay}`).first();
+      const hasEventBox = await cell.locator('button').count();
 
-    expect(emptyCell).toBeDefined();
-    await user.click(emptyCell!);
+      if ((await dayText.count()) > 0 && hasEventBox === 0) {
+        targetCell = cell;
+        break;
+      }
+    }
+
+    expect(targetCell).toBeDefined();
+
+    // 셀 클릭
+    await targetCell!.click();
 
     // 날짜가 자동으로 채워졌는지 확인
-    expect(screen.getByLabelText('날짜')).toHaveValue('2025-11-04');
+    await expect(page.getByLabel('날짜')).toHaveValue(expectedDate);
 
     // 일정 정보 입력
-    await user.type(screen.getByLabelText('제목'), '날짜 클릭 회의');
-    await user.type(screen.getByLabelText('시작 시간'), '09:00');
-    await user.type(screen.getByLabelText('종료 시간'), '10:00');
-    await user.type(screen.getByLabelText('설명'), '날짜 클릭으로 생성된 회의');
-    await user.type(screen.getByLabelText('위치'), '회의실 B');
-    await user.click(screen.getByLabelText('카테고리'));
-    await user.click(within(screen.getByLabelText('카테고리')).getByRole('combobox'));
-    await user.click(screen.getByRole('option', { name: '업무-option' }));
+    await page.getByLabel('제목').fill('날짜 클릭 회의');
+    await page.getByLabel('시작 시간').fill('09:00');
+    await page.getByLabel('종료 시간').fill('10:00');
+    await page.getByLabel('설명').fill('날짜 클릭으로 생성된 회의');
+    await page.getByLabel('위치').fill('회의실 B');
+
+    // 카테고리 선택
+    await page.getByLabel('카테고리').click();
+    await page.getByRole('option', { name: '업무-option' }).click();
 
     // 일정 생성
-    await user.click(screen.getByTestId('event-submit-button'));
+    await page.getByTestId('event-submit-button').click();
 
-    // 일정이 생성되었다는 메시지 확인
-    await screen.findByText('일정이 추가되었습니다');
+    // 일정 저장 후 성공 메시지 대기
+    await page.waitForSelector('text=일정이 추가되었습니다', { timeout: 10000 });
 
-    // 이벤트 리스트에 표시되는지 확인
-    const eventList = within(screen.getByTestId('event-list'));
-    expect(await eventList.findByText('날짜 클릭 회의')).toBeInTheDocument();
-    expect(eventList.getByText('2025-11-04')).toBeInTheDocument();
-    expect(eventList.getByText('09:00 - 10:00')).toBeInTheDocument();
-    expect(eventList.getByText('날짜 클릭으로 생성된 회의')).toBeInTheDocument();
-    expect(eventList.getByText('회의실 B')).toBeInTheDocument();
-    expect(eventList.getByText('카테고리: 업무')).toBeInTheDocument();
+    // 이벤트 리스트에 표시되는지 확인 (제목만 찾기)
+    const eventList = page.getByTestId('event-list');
+    await expect(eventList.getByText('날짜 클릭 회의')).toBeVisible();
+    await expect(eventList.getByText(expectedDate)).toBeVisible();
+    await expect(eventList.getByText('09:00 - 10:00')).toBeVisible();
+    await expect(eventList.getByText('날짜 클릭으로 생성된 회의')).toBeVisible();
+    await expect(eventList.getByText('회의실 B')).toBeVisible();
+    await expect(eventList.getByText('카테고리: 업무')).toBeVisible();
 
     // 달력(월별 뷰)에 표시되는지 확인
-    const monthView02 = within(screen.getByTestId('month-view'));
-    expect(monthView02.getByText('날짜 클릭 회의')).toBeInTheDocument();
+    const monthView02 = page.getByTestId('month-view');
+    await expect(monthView02.getByText('날짜 클릭 회의')).toBeVisible();
   });
 });
