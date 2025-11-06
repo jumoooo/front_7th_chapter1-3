@@ -2,20 +2,18 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import type { Preview } from '@storybook/react';
 import { SnackbarProvider } from 'notistack';
-import React from 'react';
+import * as React from 'react';
 
 // Material-UI 테마 생성
 const theme = createTheme();
 
 // Storybook 데코레이터: Material-UI ThemeProvider와 SnackbarProvider로 감싸기
 const withMuiTheme = (Story: any) => {
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <SnackbarProvider>
-        <Story />
-      </SnackbarProvider>
-    </ThemeProvider>
+  return React.createElement(
+    ThemeProvider,
+    { theme },
+    React.createElement(CssBaseline),
+    React.createElement(SnackbarProvider, null, React.createElement(Story))
   );
 };
 
