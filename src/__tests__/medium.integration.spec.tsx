@@ -1,5 +1,4 @@
 import { fireEvent, screen, within, act, waitFor } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
 
 import { setup, saveSchedule } from './testUtils'; // 추가
 import {
@@ -10,58 +9,7 @@ import {
 } from '../__mocks__/handlersUtils';
 import App from '../App';
 import { server } from '../setupTests';
-import type { Event } from '../types';
-
-// testUtils 로 해당 로직 이동
-// const theme = createTheme();
-
-// // ! Hard 여기 제공 안함
-// const setup = (element: ReactElement) => {
-//   const user = userEvent.setup();
-
-//   return {
-//     ...render(
-//       <ThemeProvider theme={theme}>
-//         <CssBaseline />
-//         <SnackbarProvider>{element}</SnackbarProvider>
-//       </ThemeProvider>
-//     ),
-//     user,
-//   };
-// };
-
-// // ! Hard 여기 제공 안함
-// const saveSchedule = async (
-//   user: UserEvent,
-//   form: Omit<Event, 'id' | 'notificationTime' | 'repeat'> & { repeat?: RepeatInfo }
-// ) => {
-//   const { title, date, startTime, endTime, location, description, category, repeat } = form;
-
-//   await user.click(screen.getAllByText('일정 추가')[0]);
-
-//   await user.type(screen.getByLabelText('제목'), title);
-//   await user.type(screen.getByLabelText('날짜'), date);
-//   await user.type(screen.getByLabelText('시작 시간'), startTime);
-//   await user.type(screen.getByLabelText('종료 시간'), endTime);
-//   await user.type(screen.getByLabelText('설명'), description);
-//   await user.type(screen.getByLabelText('위치'), location);
-//   await user.click(screen.getByLabelText('카테고리'));
-//   await user.click(within(screen.getByLabelText('카테고리')).getByRole('combobox'));
-//   await user.click(screen.getByRole('option', { name: `${category}-option` }));
-
-//   if (repeat) {
-//     await user.click(screen.getByLabelText('반복 일정'));
-//     await user.click(within(screen.getByLabelText('반복 유형')).getByRole('combobox'));
-//     await user.click(screen.getByRole('option', { name: `${repeat.type}-option` }));
-//     await user.clear(screen.getByLabelText('반복 간격'));
-//     await user.type(screen.getByLabelText('반복 간격'), String(repeat.interval));
-//     if (repeat.endDate) {
-//       await user.type(screen.getByLabelText('반복 종료일'), repeat.endDate!);
-//     }
-//   }
-
-//   await user.click(screen.getByTestId('event-submit-button'));
-// };
+import { RepeatInfo } from '../types';
 
 describe('일정 CRUD 및 기본 기능', () => {
   it('입력한 새로운 일정 정보에 맞춰 모든 필드가 이벤트 리스트에 정확히 저장된다.', async () => {
@@ -158,6 +106,41 @@ describe('일정 뷰', () => {
     expect(weekView.getByText('이번주 팀 회의')).toBeInTheDocument();
   });
 
+  it('주간 뷰에서 다음 달로 넘어가는 주의 일정이 달력에 올바르게 표시된다', async () => {
+    // 10월 말 근처 날짜로 설정 (2025-10-29, 수요일)
+    // 이 날짜의 주는 10월 27일(일) ~ 11월 2일(토)가 됨
+    vi.setSystemTime(new Date('2025-10-29'));
+    setupMockHandlerCreation();
+
+    const { user } = setup(<App />);
+
+    // 다음 달(11월 1일)에 일정 생성
+    await saveSchedule(user, {
+      title: '다음 달 회의',
+      date: '2025-11-01',
+      startTime: '09:00',
+      endTime: '10:00',
+      description: '다음 달 회의입니다.',
+      location: '회의실 A',
+      category: '업무',
+    });
+
+    // 일정 로딩 완료 대기
+    await screen.findByText('일정 로딩 완료!');
+
+    // 주별 뷰 선택
+    await user.click(within(screen.getByLabelText('뷰 타입 선택')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'week-option' }));
+
+    // 주간 뷰에서 다음 달 일정이 표시되는지 확인
+    const weekView = within(screen.getByTestId('week-view'));
+    expect(weekView.getByText('다음 달 회의')).toBeInTheDocument();
+
+    // 검색 목록에서도 다음 달 일정이 표시되는지 확인
+    const eventList = within(screen.getByTestId('event-list'));
+    expect(eventList.getByText('다음 달 회의')).toBeInTheDocument();
+  });
+
   it('월별 뷰에 일정이 없으면, 일정이 표시되지 않아야 한다.', async () => {
     vi.setSystemTime(new Date('2025-01-01'));
 
@@ -202,38 +185,32 @@ describe('일정 뷰', () => {
 
 describe('검색 기능', () => {
   beforeEach(() => {
-    server.use(
-      http.get('/api/events', () => {
-        return HttpResponse.json({
-          events: [
-            {
-              id: '1',
-              title: '팀 회의',
-              date: '2025-10-15',
-              startTime: '09:00',
-              endTime: '10:00',
-              description: '주간 팀 미팅',
-              location: '회의실 A',
-              category: '업무',
-              repeat: { type: 'none', interval: 0 },
-              notificationTime: 10,
-            },
-            {
-              id: '2',
-              title: '프로젝트 계획',
-              date: '2025-10-16',
-              startTime: '14:00',
-              endTime: '15:00',
-              description: '새 프로젝트 계획 수립',
-              location: '회의실 B',
-              category: '업무',
-              repeat: { type: 'none', interval: 0 },
-              notificationTime: 10,
-            },
-          ],
-        });
-      })
-    );
+    setupMockHandlerCreation([
+      {
+        id: '1',
+        title: '팀 회의',
+        date: '2025-10-15',
+        startTime: '09:00',
+        endTime: '10:00',
+        description: '주간 팀 미팅',
+        location: '회의실 A',
+        category: '업무',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+      {
+        id: '2',
+        title: '프로젝트 계획',
+        date: '2025-10-16',
+        startTime: '14:00',
+        endTime: '15:00',
+        description: '새 프로젝트 계획 수립',
+        location: '회의실 B',
+        category: '업무',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+    ]);
   });
 
   afterEach(() => {
@@ -270,6 +247,180 @@ describe('검색 기능', () => {
     const eventList = within(screen.getByTestId('event-list'));
     expect(eventList.getByText('팀 회의')).toBeInTheDocument();
     expect(eventList.getByText('프로젝트 계획')).toBeInTheDocument();
+  });
+
+  it('월간 뷰에서 연도 경계를 넘을 때 (2025년 12월 → 2026년 1월) 일정이 정확히 필터링된다', async () => {
+    // 시스템 시간을 2025-12-01로 설정
+    vi.setSystemTime(new Date('2025-12-01'));
+
+    // 2025년 12월과 2026년 1월 일정 생성
+    setupMockHandlerUpdating([
+      {
+        id: '1',
+        title: '2025년 12월 회의',
+        date: '2025-12-15',
+        startTime: '09:00',
+        endTime: '10:00',
+        description: '2025년 마지막 달 일정',
+        location: '회의실 A',
+        category: '업무',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+      {
+        id: '2',
+        title: '2025년 12월 송년회',
+        date: '2025-12-31',
+        startTime: '18:00',
+        endTime: '20:00',
+        description: '송년회',
+        location: '회의실 B',
+        category: '개인',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+      {
+        id: '3',
+        title: '2026년 1월 신년회',
+        date: '2026-01-01',
+        startTime: '10:00',
+        endTime: '12:00',
+        description: '새해 첫 모임',
+        location: '회의실 C',
+        category: '업무',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+      {
+        id: '4',
+        title: '2026년 1월 킥오프',
+        date: '2026-01-15',
+        startTime: '14:00',
+        endTime: '16:00',
+        description: '2026년 시작',
+        location: '회의실 D',
+        category: '업무',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+    ]);
+
+    const { user } = setup(<App />);
+    await screen.findByText('일정 로딩 완료!');
+
+    // 초기 상태: 2025년 12월
+    const eventList = within(screen.getByTestId('event-list'));
+
+    expect(eventList.getByText('2025년 12월 회의')).toBeInTheDocument();
+    expect(eventList.getByText('2025년 12월 송년회')).toBeInTheDocument();
+    expect(eventList.queryByText('2026년 1월 신년회')).not.toBeInTheDocument();
+    expect(eventList.queryByText('2026년 1월 킥오프')).not.toBeInTheDocument();
+
+    // 다음 달로 이동 (2026년 1월)
+    const nextButton = screen.getByLabelText('Next');
+    await user.click(nextButton);
+
+    // 2026년 1월 일정만 표시되어야 함
+    expect(eventList.queryByText('2025년 12월 회의')).not.toBeInTheDocument();
+    expect(eventList.queryByText('2025년 12월 송년회')).not.toBeInTheDocument();
+    expect(eventList.getByText('2026년 1월 신년회')).toBeInTheDocument();
+    expect(eventList.getByText('2026년 1월 킥오프')).toBeInTheDocument();
+
+    // 이전 달로 이동 (2025년 12월)
+    const prevButton = screen.getByLabelText('Previous');
+    await user.click(prevButton);
+
+    // 다시 2025년 12월 일정만 표시
+    expect(eventList.getByText('2025년 12월 회의')).toBeInTheDocument();
+    expect(eventList.getByText('2025년 12월 송년회')).toBeInTheDocument();
+    expect(eventList.queryByText('2026년 1월 신년회')).not.toBeInTheDocument();
+    expect(eventList.queryByText('2026년 1월 킥오프')).not.toBeInTheDocument();
+  });
+
+  it('주간 뷰에서 다음 달로 넘어가는 주의 일정이 검색 목록에 올바르게 표시된다', async () => {
+    // 10월 말 근처 날짜로 설정 (2025-10-29, 수요일)
+    // 이 날짜의 주는 10월 27일(일) ~ 11월 2일(토)가 됨
+    vi.setSystemTime(new Date('2025-10-29'));
+
+    setupMockHandlerCreation([
+      {
+        id: '1',
+        title: '다음 달 회의',
+        date: '2025-11-01',
+        startTime: '09:00',
+        endTime: '10:00',
+        description: '다음 달 회의입니다.',
+        location: '회의실 A',
+        category: '업무',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+    ]);
+
+    const { user } = setup(<App />);
+
+    // 일정 로딩 완료 대기
+    await screen.findByText('일정 로딩 완료!');
+
+    // 주별 뷰 선택
+    await user.click(within(screen.getByLabelText('뷰 타입 선택')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'week-option' }));
+
+    // 검색 목록에서 다음 달 일정이 표시되는지 확인
+    const eventList = within(screen.getByTestId('event-list'));
+    expect(eventList.getByText('다음 달 회의')).toBeInTheDocument();
+  });
+
+  it('주간 뷰에서 다음 달로 넘어가는 주의 일정이 검색어로 검색된다', async () => {
+    // 10월 말 근처 날짜로 설정 (2025-10-29, 수요일)
+    // 이 날짜의 주는 10월 27일(일) ~ 11월 2일(토)가 됨
+    vi.setSystemTime(new Date('2025-10-29'));
+
+    setupMockHandlerCreation([
+      {
+        id: '1',
+        title: '다음 달 회의',
+        date: '2025-11-01',
+        startTime: '09:00',
+        endTime: '10:00',
+        description: '다음 달 회의입니다.',
+        location: '회의실 A',
+        category: '업무',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+      {
+        id: '2',
+        title: '다른 일정',
+        date: '2025-10-15',
+        startTime: '14:00',
+        endTime: '15:00',
+        description: '다른 일정입니다.',
+        location: '회의실 B',
+        category: '개인',
+        repeat: { type: 'none', interval: 0 },
+        notificationTime: 10,
+      },
+    ]);
+
+    const { user } = setup(<App />);
+
+    // 일정 로딩 완료 대기
+    await screen.findByText('일정 로딩 완료!');
+
+    // 주별 뷰 선택
+    await user.click(within(screen.getByLabelText('뷰 타입 선택')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'week-option' }));
+
+    // 검색어 입력 (다음 달 회의 검색)
+    const searchInput = screen.getByPlaceholderText('검색어를 입력하세요');
+    await user.type(searchInput, '다음 달');
+
+    // 검색 결과에서 다음 달 일정이 표시되는지 확인
+    const eventList = within(screen.getByTestId('event-list'));
+    expect(eventList.getByText('다음 달 회의')).toBeInTheDocument();
+    // 다른 일정은 검색 결과에서 제외되어야 함
+    expect(eventList.queryByText('다른 일정')).not.toBeInTheDocument();
   });
 });
 
@@ -656,7 +807,7 @@ describe('달력 부분 마우스 조작 기능 테스트', () => {
 
       // POST와 PUT을 모두 지원하는 mock 설정
       // 초기에는 기존 일정이 있고, 생성 후 업데이트를 위해 PUT 핸들러도 포함
-      const mockEvents: Event[] = [
+      setupMockHandlerCreation([
         {
           id: '1',
           title: '기존 회의',
@@ -669,29 +820,23 @@ describe('달력 부분 마우스 조작 기능 테스트', () => {
           repeat: { type: 'none', interval: 0 },
           notificationTime: 10,
         },
-      ];
+      ]);
 
-      server.use(
-        http.get('/api/events', () => {
-          return HttpResponse.json({ events: mockEvents });
-        }),
-        http.post('/api/events', async ({ request }) => {
-          const newEvent = (await request.json()) as Event;
-          newEvent.id = String(mockEvents.length + 1);
-          mockEvents.push(newEvent);
-          return HttpResponse.json(newEvent, { status: 201 });
-        }),
-        http.put('/api/events/:id', async ({ params, request }) => {
-          const { id } = params;
-          const updatedEvent = (await request.json()) as Event;
-          const index = mockEvents.findIndex((event) => event.id === id);
-          if (index !== -1) {
-            mockEvents[index] = { ...mockEvents[index], ...updatedEvent };
-            return HttpResponse.json(mockEvents[index]);
-          }
-          return new HttpResponse(null, { status: 404 });
-        })
-      );
+      // PUT 핸들러 추가 설정
+      setupMockHandlerUpdating([
+        {
+          id: '1',
+          title: '기존 회의',
+          date: '2025-11-03',
+          startTime: '09:00',
+          endTime: '15:00',
+          description: '기존 팀 미팅',
+          location: '회의실 B',
+          category: '업무',
+          repeat: { type: 'none', interval: 0 },
+          notificationTime: 10,
+        },
+      ]);
 
       const { user } = setup(<App />);
 
@@ -762,5 +907,161 @@ describe('달력 부분 마우스 조작 기능 테스트', () => {
         expect(screen.getByText('일정 겹침 경고')).toBeInTheDocument();
       });
     });
+  });
+});
+
+describe('네비게이션 후 헤더 표시', () => {
+  it('월별 뷰에서 네비게이션 후 올바른 월 정보가 표시된다', async () => {
+    const { user } = setup(<App />);
+
+    // 일정 로딩 완료 대기
+    await screen.findByText('일정 로딩 완료!');
+
+    // 초기 상태 확인 (10월)
+    expect(screen.getByText('2025년 10월')).toBeInTheDocument();
+
+    // 다음 버튼 클릭 - 11월
+    await user.click(screen.getByLabelText('Next'));
+    expect(screen.getByText('2025년 11월')).toBeInTheDocument();
+
+    // 다음 버튼 클릭 - 12월
+    await user.click(screen.getByLabelText('Next'));
+    expect(screen.getByText('2025년 12월')).toBeInTheDocument();
+
+    // 다음 버튼 클릭 - 다음 연도 1월
+    await user.click(screen.getByLabelText('Next'));
+    expect(screen.getByText('2026년 1월')).toBeInTheDocument();
+
+    // 이전 버튼으로 돌아가기
+    await user.click(screen.getByLabelText('Previous'));
+    expect(screen.getByText('2025년 12월')).toBeInTheDocument();
+  });
+
+  it('주별 뷰에서 네비게이션 후 올바른 주 정보가 표시된다', async () => {
+    const { user } = setup(<App />);
+
+    // 일정 로딩 완료 대기
+    await screen.findByText('일정 로딩 완료!');
+
+    // 주별 뷰로 전환
+    await user.click(within(screen.getByLabelText('뷰 타입 선택')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'week-option' }));
+
+    // 초기 상태 확인
+    expect(screen.getByText(/2025년 10월 1주/)).toBeInTheDocument();
+
+    // 다음 버튼 클릭 - 다음 주
+    await user.click(screen.getByLabelText('Next'));
+    expect(screen.getByText(/2025년 10월 2주/)).toBeInTheDocument();
+
+    // 계속 다음 버튼 클릭하여 월 경계 확인
+    await user.click(screen.getByLabelText('Next'));
+    await user.click(screen.getByLabelText('Next'));
+    await user.click(screen.getByLabelText('Next'));
+
+    // 10월 말에서 11월로 넘어가는지 확인
+    const weekHeader = screen.getByTestId('week-view').querySelector('h5');
+    expect(weekHeader?.textContent).toMatch(/2025년 (10|11)월 \d주/);
+
+    // 이전 버튼으로 돌아가기
+    await user.click(screen.getByLabelText('Previous'));
+    await user.click(screen.getByLabelText('Previous'));
+    expect(screen.getByText(/2025년 10월/)).toBeInTheDocument();
+  });
+});
+
+describe('네비게이션 버튼과 일정 필터링', () => {
+  const events = [
+    {
+      id: '1',
+      title: '9월 일정',
+      date: '2025-09-15',
+      startTime: '10:00',
+      endTime: '11:00',
+      description: '9월 중요 일정',
+      location: '회의실 A',
+      category: '업무',
+      repeat: { type: 'none', interval: 0 } as RepeatInfo,
+      notificationTime: 10,
+    },
+    {
+      id: '2',
+      title: '10월 일정',
+      date: '2025-10-15',
+      startTime: '14:00',
+      endTime: '15:00',
+      description: '10월 중요 일정',
+      location: '회의실 B',
+      category: '업무',
+      repeat: { type: 'none', interval: 0 } as RepeatInfo,
+      notificationTime: 10,
+    },
+    {
+      id: '3',
+      title: '11월 일정',
+      date: '2025-11-15',
+      startTime: '16:00',
+      endTime: '17:00',
+      description: '11월 중요 일정',
+      location: '회의실 C',
+      category: '개인',
+      repeat: { type: 'none', interval: 0 } as RepeatInfo,
+      notificationTime: 10,
+    },
+  ];
+
+  it('월별 뷰에서 이전/다음 버튼 클릭 시 캘린더에서 해당 월의 일정만 표시된다', async () => {
+    setupMockHandlerCreation(events);
+    const { user } = setup(<App />);
+    await screen.findByText('일정 로딩 완료!');
+
+    // 10월 뷰에서 시작 - 캘린더와 일정 리스트 모두 10월 일정만 표시
+    const monthView = within(screen.getByTestId('month-view'));
+
+    expect(screen.getByText('2025년 10월')).toBeInTheDocument();
+    expect(monthView.getByText('10월 일정')).toBeInTheDocument();
+    expect(monthView.queryByText('9월 일정')).not.toBeInTheDocument();
+    expect(monthView.queryByText('11월 일정')).not.toBeInTheDocument();
+
+    // 이전 버튼 클릭 - 9월로 이동
+    await user.click(screen.getByLabelText('Previous'));
+
+    // 캘린더와 일정 리스트 모두 9월 일정만 표시
+    expect(screen.getByText('2025년 9월')).toBeInTheDocument();
+    expect(monthView.getByText('9월 일정')).toBeInTheDocument();
+    expect(monthView.queryByText('10월 일정')).not.toBeInTheDocument();
+
+    // 다음 버튼 두 번 클릭 - 11월로 이동
+    await user.click(screen.getByLabelText('Next'));
+    await user.click(screen.getByLabelText('Next'));
+
+    // 캘린더와 일정 리스트 모두 11월 일정만 표시
+    expect(screen.getByText('2025년 11월')).toBeInTheDocument();
+    expect(monthView.getByText('11월 일정')).toBeInTheDocument();
+    expect(monthView.queryByText('10월 일정')).not.toBeInTheDocument();
+  });
+
+  it('주별 뷰에서 이전/다음 버튼 클릭 시 캘린더에서 해당 주의 일정만 표시된다', async () => {
+    setupMockHandlerCreation(events);
+    const { user } = setup(<App />);
+    await screen.findByText('일정 로딩 완료!');
+
+    // 주별 뷰로 전환
+    await user.click(within(screen.getByLabelText('뷰 타입 선택')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'week-option' }));
+
+    const weekView = within(screen.getByTestId('week-view'));
+
+    // 10월 첫 주 확인 (10월 1일 포함)
+    expect(screen.getByText(/2025년 10월 1주/)).toBeInTheDocument();
+
+    // 다음 버튼 클릭하여 10월 15일이 포함된 주로 이동
+    await user.click(screen.getByLabelText('Next'));
+    await user.click(screen.getByLabelText('Next'));
+
+    // 캘린더와 일정 리스트 모두 10월 15일 일정만 표시
+    expect(weekView.getByText('10월 일정')).toBeInTheDocument();
+    expect(weekView.queryByText('9월 일정')).not.toBeInTheDocument();
+    expect(weekView.queryByText('11월 일정')).not.toBeInTheDocument();
   });
 });
