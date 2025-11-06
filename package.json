@@ -17,8 +17,8 @@
     "lint": "pnpm lint:eslint && pnpm lint:tsc",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "chromatic": "chromatic --project-token=${CHROMATIC_PROJECT_TOKEN}",
-    "chromatic:local": "chromatic --project-token=${CHROMATIC_PROJECT_TOKEN} --exit-zero-on-changes",
+    "chromatic": "cross-env CHROMATIC_PROJECT_TOKEN=$CHROMATIC_PROJECT_TOKEN chromatic --project-token=$CHROMATIC_PROJECT_TOKEN",
+    "chromatic:local": "node scripts/run-chromatic.js --exit-zero-on-changes",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
@@ -57,6 +57,7 @@
     "@vitest/ui": "^3.2.4",
     "chromatic": "^13.3.3",
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
     "eslint": "^9.30.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-import": "^2.32.0",

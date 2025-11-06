@@ -39,6 +39,7 @@ const meta = {
       },
     },
     // Chromatic 시각적 회귀 테스트 설정
+    // viewports와 modes는 동시에 사용할 수 없으므로 viewports만 사용
     chromatic: {
       diffThreshold: 0.063,
       viewports: [1280, 768],

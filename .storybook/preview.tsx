@@ -30,15 +30,8 @@ const preview: Preview = {
     chromatic: {
       // 시각적 회귀 테스트 감도 설정 (0~1, 기본값 0.063)
       diffThreshold: 0.063,
-      // 스냅샷 모드 설정
-      modes: {
-        mobile: {
-          viewport: 'mobile1',
-        },
-        desktop: {
-          viewport: 'desktop',
-        },
-      },
+      // modes와 viewports는 동시에 사용할 수 없으므로 제거
+      // 개별 스토리에서 viewports를 사용하도록 설정
     },
   },
   decorators: [withMuiTheme],
