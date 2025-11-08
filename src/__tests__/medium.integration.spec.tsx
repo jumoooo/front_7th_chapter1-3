@@ -1,4 +1,5 @@
 import { fireEvent, screen, within, act, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 
 import { setup, saveSchedule } from './testUtils'; // 추가
 import {
@@ -9,6 +10,7 @@ import {
 } from '../__mocks__/handlersUtils';
 import App from '../App';
 import { server } from '../setupTests';
+import type { Event } from '../types';
 import { RepeatInfo } from '../types';
 
 describe('일정 CRUD 및 기본 기능', () => {
@@ -801,28 +803,12 @@ describe('달력 부분 마우스 조작 기능 테스트', () => {
       expect(originalCell).toBeUndefined();
     });
 
-    it('달력의 일정을 드래그 후 일정이 겹치는 곳 위로 이동하면 겹침 알람 팝업이 발생해야 한다.', async () => {
+    it('달력 드래그로 겹치는 일정 위에 놓으면 겹침 경고가 노출된다', async () => {
       vi.setSystemTime(new Date('2025-11-04'));
 
-      // POST와 PUT을 모두 지원하는 mock 설정
-      // 초기에는 기존 일정이 있고, 생성 후 업데이트를 위해 PUT 핸들러도 포함
-      setupMockHandlerCreation([
-        {
-          id: '1',
-          title: '기존 회의',
-          date: '2025-11-03',
-          startTime: '09:00',
-          endTime: '15:00',
-          description: '기존 팀 미팅',
-          location: '회의실 B',
-          category: '업무',
-          repeat: { type: 'none', interval: 0 },
-          notificationTime: 10,
-        },
-      ]);
+      server.resetHandlers();
 
-      // PUT 핸들러 추가 설정
-      setupMockHandlerUpdating([
+      const eventsStore: Event[] = [
         {
           id: '1',
           title: '기존 회의',
@@ -835,14 +821,39 @@ describe('달력 부분 마우스 조작 기능 테스트', () => {
           repeat: { type: 'none', interval: 0 },
           notificationTime: 10,
         },
-      ]);
+      ];
+
+      server.use(
+        http.get('/api/events', () => {
+          return HttpResponse.json({ events: eventsStore });
+        }),
+        http.post('/api/events', async ({ request }) => {
+          const newEvent = (await request.json()) as Event;
+          const eventWithId = {
+            ...newEvent,
+            id: String(eventsStore.length + 1),
+            notificationTime: newEvent.notificationTime ?? 10,
+            repeat: newEvent.repeat ?? { type: 'none', interval: 0, endDate: '' },
+          };
+          eventsStore.push(eventWithId);
+          return HttpResponse.json(eventWithId, { status: 201 });
+        }),
+        http.put('/api/events/:id', async ({ params, request }) => {
+          const { id } = params;
+          const updatedEvent = (await request.json()) as Event;
+          const index = eventsStore.findIndex((event) => event.id === id);
+          if (index !== -1) {
+            eventsStore[index] = { ...eventsStore[index], ...updatedEvent };
+            return HttpResponse.json(eventsStore[index]);
+          }
+          return HttpResponse.json(updatedEvent, { status: 404 });
+        })
+      );
 
       const { user } = setup(<App />);
 
-      // 일정 로딩 완료 대기
       await screen.findByText('일정 로딩 완료!');
 
-      // 새 일정 생성
       await saveSchedule(user, {
         title: '새 회의',
         date: '2025-11-04',
@@ -853,59 +864,79 @@ describe('달력 부분 마우스 조작 기능 테스트', () => {
         category: '업무',
       });
 
-      // 일정이 생성되었다는 메시지 확인
       await screen.findByText('일정이 추가되었습니다');
 
-      // 월별 뷰에서 드래그할 일정 Box 찾기 (11월 4일의 일정)
       const monthView = screen.getByTestId('month-view');
 
-      // 일정이 달력에 표시될 때까지 대기
-      const eventBox = await within(monthView).findByText('새 회의');
-      const draggableBox = eventBox.closest('[draggable="true"]');
-      expect(draggableBox).toBeDefined();
+      const createdEvent = await within(monthView).findByText('새 회의');
+      const draggableBox = createdEvent.closest('[draggable="true"]') as HTMLElement | null;
+      expect(draggableBox).not.toBeNull();
 
-      // 드롭할 대상 날짜 셀 찾기 (11월 3일 빈 란)
-      const tableBody = within(monthView).getAllByRole('rowgroup')[1];
-      const allBodyCells = within(tableBody).getAllByRole('cell');
-
-      // 11월 3일 셀 찾기 (날짜 숫자가 3이고 일정이 있는 셀)
-      const targetDay = 3;
-      const targetCell = allBodyCells.find((cell) => {
-        const dayText = within(cell).queryByText(String(targetDay));
-        // 일정이 있는 셀인지 확인 (일정 Box가 없어야 함)
-        const hasEventBox = within(cell).queryByText('기존 회의');
-        return dayText !== null && hasEventBox !== null;
+      const targetCell = await waitFor(() => {
+        const body = within(monthView).getAllByRole('rowgroup')[1];
+        const cells = within(body).getAllByRole('cell');
+        const foundCell = cells.find((cell) => {
+          const isTargetDay = within(cell).queryByText('3') !== null;
+          const hasExistingEvent = within(cell).queryByText('기존 회의') !== null;
+          return isTargetDay && hasExistingEvent;
+        });
+        if (!foundCell) {
+          throw new Error('타깃 셀을 찾지 못했습니다');
+        }
+        return foundCell;
       });
 
-      expect(targetCell).toBeDefined();
+      const fallbackDataTransfer = () => {
+        const store: Record<string, string> = {};
+        return {
+          dropEffect: 'move',
+          effectAllowed: 'all',
+          files: [],
+          items: [],
+          types: [],
+          setData(type: string, value: string) {
+            store[type] = value;
+          },
+          getData(type: string) {
+            return store[type] ?? '';
+          },
+          clearData() {
+            Object.keys(store).forEach((key) => delete store[key]);
+          },
+        };
+      };
 
-      // 1. 마우스를 일정 위로 이동하고 누름 (mousedown)
-      await user.pointer({ target: draggableBox!, keys: '[MouseLeft>]' });
+      const dataTransfer =
+        typeof DataTransfer === 'function'
+          ? new DataTransfer()
+          : (fallbackDataTransfer() as unknown as DataTransfer);
 
-      // 2. 드래그 시작 (dragstart 이벤트 발생)
-      fireEvent.dragStart(draggableBox!);
-      await act(async () => {});
-
-      // 3. 드롭 대상 위로 마우스 이동 (dragover 이벤트 발생)
-      const dragOverEvent = new Event('dragover', { bubbles: true, cancelable: true });
-      // spy 함수 로 만드려면 이렇게 새로 설정 해줘야 한다.
-      Object.defineProperty(dragOverEvent, 'preventDefault', {
-        value: vi.fn(),
-        writable: true,
+      await act(async () => {
+        fireEvent.dragStart(draggableBox!, { dataTransfer });
       });
-      fireEvent(targetCell!, dragOverEvent);
-      await act(async () => {});
 
-      // 4. 드롭 대상 위에서 마우스 버튼 놓기 (drop 이벤트 발생)
-      await user.pointer({ target: targetCell!, keys: '[/MouseLeft]' });
-      fireEvent.drop(targetCell!);
-      await act(async () => {});
-
-      // 겹침 경고 팝업이 나타날 때까지 대기
       await waitFor(() => {
-        expect(screen.getByText('일정 겹침 경고')).toBeInTheDocument();
+        const titleInput = screen.getByLabelText('제목') as HTMLInputElement;
+        expect(titleInput.value).toBe('새 회의');
       });
-    });
+
+      await act(async () => {
+        fireEvent.dragEnter(targetCell, { dataTransfer });
+        fireEvent.dragOver(targetCell, { dataTransfer });
+        fireEvent.drop(targetCell, { dataTransfer });
+        fireEvent.dragEnd(draggableBox!, { dataTransfer });
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByText('일정 겹침 경고')).toBeInTheDocument();
+          expect(screen.getByText(/다음 일정과 겹칩니다/)).toBeInTheDocument();
+        },
+        { timeout: 2000 }
+      );
+
+      server.resetHandlers();
+    }, 15000);
   });
 });
 
